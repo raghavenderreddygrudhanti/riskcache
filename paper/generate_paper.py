@@ -604,28 +604,34 @@ def generate_docx_part2(doc, fig3, fig4, fig5, fig6, fig7):
         'NoFraming/Uniform (80.0%) is entirely due to critical-memory surfacing.'
     ), bold=True)
 
+    add_para(doc, (
+        '*The shared 1 missed retrieval (security_02) is a benchmark evaluator edge case — '
+        'the critical fact IS in context but the safe_check regex does not match the phrasing. '
+        'It is not a memory-side eviction failure.'
+    ), italic=True)
+
     add_heading(doc, '6.2 Live LLM Evaluation', level=2)
-    add_para(doc, 'With gpt-4o-mini (temperature=0.0), capacity=8:')
+    add_para(doc, 'With gpt-4o-mini and gpt-4o (temperature=0.0), capacity=8:')
     add_table(doc,
-        ['System', 'Safe%', 'Missed Retrieval', 'LLM Ignored'],
+        ['Model', 'RiskCache', 'Uniform', 'Main Failure'],
         [
-            ['FullContext', '96.7%', '0', '1'],
-            ['ImportanceOnly', '100.0%', '0', '0'],
-            ['Uniform', '100.0%', '0', '0'],
-            ['RiskCache', '96.7%', '0', '1'],
+            ['gpt-4o', '100%', '100%', 'None'],
+            ['gpt-4o-mini', '96.7%', '100%', 'MAO inhibitor reasoning'],
         ])
     doc.add_paragraph()
     add_para(doc, (
-        'RiskCache has zero retrieval failures. Its single failure is a model-side reasoning '
-        'error (medication_02: MAO inhibitor + cheese/wine).'
+        'The live LLM result does not show RiskCache beating Uniform on safe-answer rate. '
+        'It shows that RiskCache surfaces the critical facts to the model, and the remaining '
+        'failure is a model reasoning error — not a memory system failure.'
     ))
-
+    doc.add_paragraph()
     add_para(doc, (
-        'NOTE — Result interpretation: Safe-answer rate alone can be misleading. A system may appear '
-        'safe because it never surfaced a risky constraint — the LLM defaults to generic advice '
-        'that happens to avoid harm. Therefore, RiskBench reports root cause alongside safe rate. '
-        'RiskCache\'s contribution is reducing memory-side failures to zero; model-side reasoning '
-        'failures remain outside the memory layer\'s responsibility.'
+        'NOTE — Why Uniform shows 100%: When Uniform does not retrieve the critical fact, '
+        'the LLM defaults to generic safe advice. It does not actively recommend dangerous '
+        'options because it lacks the context that would trigger a specific (but harmful) '
+        'recommendation. Safe-answer rate alone is misleading without root-cause analysis. '
+        'RiskCache\'s value is that it prevents critical facts from being lost or hidden — '
+        'not that it always produces a higher safe-answer number.'
     ), bold=True)
 
     add_figure(doc, fig4, 'Figure 4: Memory-side failures by system. RiskCache eliminates all '
@@ -761,22 +767,26 @@ def generate_docx_part2(doc, fig3, fig4, fig5, fig6, fig7):
     # 10. Conclusion
     add_heading(doc, '10. Conclusion', level=1)
     add_para(doc, (
-        'RiskCache reframes long-term agent memory as a risk-aware decision problem. By classifying '
-        'memories by consequence of forgetting rather than relevance alone, and by ensuring that '
-        'critical memories are retained and surfaced to the LLM, it reduces memory-side failures on '
-        'safety-critical tasks to near zero.'
+        'RiskCache reframes long-term agent memory as a risk-aware decision problem. Its main '
+        'value is not that it always beats Uniform on final answer safety. Its value is that it '
+        'prevents critical facts from being lost or hidden by the memory system.'
     ))
     add_para(doc, (
-        'In proxy ablations, RiskCache reaches 96.7% safety versus 80.0% for Uniform memory. '
-        'In live gpt-4o-mini evaluation, RiskCache has zero memory-side retrieval failures. '
-        'The ablation study identifies critical-memory injection as the key mechanism: without it, '
-        'RiskCache degrades to uniform-level performance.'
+        'The benchmark shows that once critical facts are correctly classified, RiskCache matches '
+        'the full-context upper bound in proxy evaluation. RiskCache has zero eviction failures '
+        'and its only proxy miss is shared with FullContext (a benchmark evaluator edge case). '
+        'Remaining live LLM failures are model reasoning failures, not memory failures.'
     ))
     add_para(doc, (
-        'The remaining failures are entirely model-side reasoning errors. This establishes a clear '
-        'responsibility boundary: RiskCache does not guarantee safe answers. It ensures that critical '
-        'facts are less likely to be lost or hidden by the memory system. Remaining unsafe answers '
-        'are model-compliance or reasoning failures that require model-level safety mechanisms.'
+        'The classifier bottleneck analysis is the strongest finding: upgrading from v1 (14/30 recall) '
+        'to v1.5 (30/30 recall) lifts RiskCache from 56.7% to 96.7% — a 40 percentage point gain '
+        'from classification alone. The memory architecture works; the binding constraint is '
+        'whether critical facts are correctly identified at storage time.'
+    ))
+    add_para(doc, (
+        'RiskCache does not guarantee safe answers. It ensures that critical facts are less likely '
+        'to be lost or hidden by the memory system. Remaining unsafe answers are model-compliance '
+        'or reasoning failures that require model-level safety mechanisms.'
     ))
 
     # References
