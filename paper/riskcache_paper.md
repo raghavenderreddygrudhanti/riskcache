@@ -6,7 +6,7 @@
 
 ## Abstract
 
-Long-term memory is essential for LLM agents that operate across sessions, but current memory systems treat all stored information equally. When memory is constrained, critical safety facts — allergies, medication interactions, legal deadlines, privacy rules — can be evicted or fail to surface just as easily as casual preferences. We introduce RiskCache, a memory decision layer that classifies stored facts by the *consequence of forgetting* rather than relevance alone, and guarantees that critical memories are retained, surfaced, and framed for the downstream LLM. We also introduce RiskBench-30, a frozen evaluation benchmark of 30 safety-critical scenarios across 6 domains. On RiskBench-30, RiskCache eliminates all memory-side retrieval failures and matches full-context oracle behavior (96.7% safety rate). Ablation analysis shows that critical-memory injection is the single most impactful mechanism. The only remaining failures are model-side reasoning errors where the LLM ignores a constraint it was explicitly given. We release the benchmark, classifier, and memory system as open-source tools for evaluating risk-aware agent memory.
+Long-term memory is essential for LLM agents that operate across sessions, but current memory systems treat all stored information equally. When memory is constrained, critical safety facts — allergies, medication interactions, legal deadlines, privacy rules — can be evicted or fail to surface just as easily as casual preferences. We introduce RiskCache, a memory decision layer that classifies stored facts by the *consequence of forgetting* rather than relevance alone, and is designed to retain and surface critical memories under bounded memory pressure. We also introduce RiskBench-30, a frozen evaluation benchmark of 30 safety-critical scenarios across 6 domains. In proxy ablations, RiskCache reaches 96.7% safety versus 80.0% for Uniform memory. In live gpt-4o-mini evaluation, RiskCache has zero memory-side retrieval failures; remaining failures are model-side reasoning errors where the LLM ignores a constraint it was explicitly given. Ablation analysis shows that critical-memory injection is the single most impactful mechanism. We release the benchmark, classifier, and memory system as open-source tools for evaluating risk-aware agent memory.
 
 ---
 
@@ -302,7 +302,7 @@ This case illustrates a fundamental boundary:
 | Critical fact not retrieved | Surfacing | Yes (critical injection) |
 | Critical fact in prompt, LLM ignores | Model reasoning | **No** |
 
-**Figure 3: The responsibility boundary.** RiskCache guarantees *availability* of critical facts. It cannot guarantee *compliance* — that requires model-level safety mechanisms (RLHF, constitutional AI, guardrails).
+**Figure 3: The responsibility boundary.** RiskCache is designed to ensure *availability* of critical facts. It cannot guarantee *compliance* — that requires model-level safety mechanisms (RLHF, constitutional AI, guardrails).
 
 ### 7.3 Potential Mitigation: Constraint Implication Expansion
 
@@ -355,11 +355,11 @@ This transforms implicit medical knowledge into explicit constraints the LLM can
 
 ## 10. Conclusion
 
-RiskCache reframes long-term agent memory as a risk-aware decision problem. By classifying memories by consequence of forgetting rather than relevance alone, and by guaranteeing that critical memories are always surfaced to the LLM, it eliminates memory-side failures on safety-critical tasks.
+RiskCache reframes long-term agent memory as a risk-aware decision problem. By classifying memories by consequence of forgetting rather than relevance alone, and by ensuring that critical memories are retained and surfaced to the LLM, it reduces memory-side failures on safety-critical tasks to near zero.
 
-On RiskBench-30, RiskCache achieves 96.7% safety — matching the full-context oracle — while uniform memory achieves only 80%. The ablation study cleanly identifies critical-memory injection as the key mechanism: without it, RiskCache degrades to uniform-level performance.
+In proxy ablations, RiskCache reaches 96.7% safety versus 80.0% for Uniform memory. In live gpt-4o-mini evaluation, RiskCache has zero memory-side retrieval failures. The ablation study cleanly identifies critical-memory injection as the key mechanism: without it, RiskCache degrades to uniform-level performance.
 
-The remaining 3.3% failure rate is entirely due to model-side reasoning errors where the LLM ignores a constraint it was explicitly given. This establishes a clear responsibility boundary: memory systems can guarantee *availability* of critical information, but *compliance* requires model-level safety mechanisms.
+The remaining failures are entirely model-side reasoning errors. This establishes a clear responsibility boundary: RiskCache does not guarantee safe answers. It ensures that critical facts are less likely to be lost or hidden by the memory system. Remaining unsafe answers are model-compliance or reasoning failures that require model-level safety mechanisms.
 
 We release RiskBench-30, the v1.5 risk classifier, and the RiskCache memory system as open-source tools for the community to build upon.
 

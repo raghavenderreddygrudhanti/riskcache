@@ -93,43 +93,45 @@ def fig_ablation_bar():
 
 
 def fig_root_cause_stacked():
-    """Figure 2: Root-cause stacked bar chart (LLM eval, cap=8)."""
-    data = load_results("safety_tagged_llm_v2_cap8.json")
+    """Figure 2: Missed retrieval count by system (the key differentiator)."""
+    data = load_results("keyword_v15_classifier_proxy_cap8.json")
     if not data:
-        data = load_results("keyword_v15_classifier_llm_cap8.json")
+        data = load_results("oracle_classification_proxy_cap8.json")
     if not data:
         return None
 
-    systems = ["FullContext", "ImportanceOnly", "Uniform", "RiskCache"]
-    causes = ["SAFE", "MISSED_RETRIEVAL", "LLM_IGNORED", "EVICTED"]
-    cause_colors = {'SAFE': '#2ecc71', 'MISSED_RETRIEVAL': '#e74c3c',
-                    'LLM_IGNORED': '#f39c12', 'EVICTED': '#9b59b6'}
+    systems = ["FullContext", "RiskCache", "Uniform", "ImportanceOnly"]
+    missed = []
+    colors_list = []
 
-    fig, ax = plt.subplots(figsize=(8, 5))
-    x = np.arange(len(systems))
-    width = 0.6
-    bottoms = np.zeros(len(systems))
+    for sys_name in systems:
+        rows = [r for r in data["results"] if r["system"] == sys_name]
+        m = sum(1 for r in rows if r["root_cause"] == "MISSED_RETRIEVAL")
+        missed.append(m)
+        colors_list.append(COLORS.get(sys_name, '#95a5a6'))
 
-    for cause in causes:
-        counts = []
-        for sys_name in systems:
-            rows = [r for r in data["results"] if r["system"] == sys_name]
-            c = sum(1 for r in rows if r["root_cause"] == cause)
-            counts.append(c)
-        counts = np.array(counts)
-        ax.bar(x, counts, width, bottom=bottoms, label=cause,
-               color=cause_colors[cause], edgecolor='white')
-        bottoms += counts
-
-    ax.set_xticks(x)
+    fig, ax = plt.subplots(figsize=(7, 4))
+    bars = ax.bar(range(len(systems)), missed, color=colors_list, edgecolor='white', width=0.6)
+    ax.set_xticks(range(len(systems)))
     ax.set_xticklabels(systems, fontsize=11)
-    ax.set_ylabel("Scenarios (out of 30)", fontsize=12)
-    ax.set_title("RiskBench-30: Root-Cause Analysis (gpt-4o-mini, cap=8)", fontsize=13, fontweight='bold')
-    ax.legend(loc='upper right')
-    ax.set_ylim(0, 33)
+    ax.set_ylabel("Missed Retrieval Failures (out of 30)", fontsize=12)
+    ax.set_title("Memory-Side Failures: Critical Fact Not in Context\n(proxy, cap=8, v1.5 classifier)",
+                 fontsize=12, fontweight='bold')
+    ax.set_ylim(0, max(missed) + 2)
+
+    for bar, val in zip(bars, missed):
+        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.3,
+                str(val), ha='center', va='bottom', fontsize=14, fontweight='bold')
+
+    # Annotation
+    ax.annotate('RiskCache eliminates\nmemory-side failures',
+                xy=(1, missed[1] + 0.2), xytext=(1.8, 3),
+                fontsize=10, ha='center',
+                arrowprops=dict(arrowstyle='->', color='#3498db'),
+                color='#3498db', fontweight='bold')
 
     plt.tight_layout()
-    path = FIG_DIR / "root_cause_stacked.png"
+    path = FIG_DIR / "missed_retrieval_bar.png"
     plt.savefig(path, dpi=150, bbox_inches='tight')
     plt.close()
     return path
@@ -229,9 +231,9 @@ def fig_failure_pipeline():
 
 def fig_architecture():
     """Figure 5: RiskCache architecture diagram."""
-    fig, ax = plt.subplots(figsize=(8, 7))
+    fig, ax = plt.subplots(figsize=(8, 8))
     ax.set_xlim(0, 10)
-    ax.set_ylim(0, 10)
+    ax.set_ylim(-0.5, 10.5)
     ax.axis('off')
 
     layers = [
@@ -320,7 +322,7 @@ def generate_docx():
     doc = Document()
 
     # Title
-    title = doc.add_heading('RiskCache: Risk-Aware Retention and Surfacing\nfor Long-Term Agent Memory', level=0)
+    title = doc.add_heading('RiskCache: Risk-Aware Retention and Surfacing for Long-Term Agent Memory', level=0)
     title.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     author = doc.add_paragraph()
@@ -339,14 +341,16 @@ def generate_docx():
         'constrained, critical safety facts — allergies, medication interactions, legal '
         'deadlines, privacy rules — can be evicted or fail to surface just as easily as '
         'casual preferences. We introduce RiskCache, a memory decision layer that classifies '
-        'stored facts by the consequence of forgetting rather than relevance alone, and '
-        'guarantees that critical memories are retained, surfaced, and framed for the '
-        'downstream LLM. We also introduce RiskBench-30, a frozen evaluation benchmark of '
-        '30 safety-critical scenarios across 6 domains. On RiskBench-30, RiskCache eliminates '
-        'all memory-side retrieval failures and matches full-context oracle behavior (96.7% '
-        'safety rate). Ablation analysis shows that critical-memory injection is the single '
-        'most impactful mechanism. The only remaining failures are model-side reasoning errors '
-        'where the LLM ignores a constraint it was explicitly given.'
+        'stored facts by the consequence of forgetting rather than relevance alone, and is '
+        'designed to retain and surface critical memories under bounded memory pressure. '
+        'We also introduce RiskBench-30, a frozen evaluation benchmark of '
+        '30 safety-critical scenarios across 6 domains. In proxy ablations, RiskCache '
+        'reaches 96.7% safety versus 80.0% for Uniform memory. In live gpt-4o-mini '
+        'evaluation, RiskCache has zero memory-side retrieval failures; remaining failures '
+        'are model-side reasoning errors where the LLM ignores a constraint it was explicitly '
+        'given. Ablation analysis shows that critical-memory injection is the single '
+        'most impactful mechanism. We release the benchmark, classifier, and memory system '
+        'as open-source tools for evaluating risk-aware agent memory.'
     ))
 
     # 1. Introduction
@@ -522,8 +526,16 @@ def generate_docx_part2(doc, fig3, fig4, fig5):
         'error (medication_02: MAO inhibitor + cheese/wine).'
     ))
 
-    add_figure(doc, fig4, 'Figure 4: Root-cause analysis (gpt-4o-mini, cap=8). '
-               'RiskCache eliminates all memory-side failures.')
+    add_para(doc, (
+        'Result interpretation: Safe-answer rate alone can be misleading. A system may appear '
+        'safe because it never surfaced a risky constraint — the LLM defaults to generic advice '
+        'that happens to avoid harm. Therefore, RiskBench reports root cause alongside safe rate. '
+        'RiskCache\'s contribution is reducing memory-side failures to zero; model-side reasoning '
+        'failures remain outside the memory layer\'s responsibility.'
+    ), bold=True)
+
+    add_figure(doc, fig4, 'Figure 4: Memory-side failures by system. RiskCache eliminates all '
+               'missed retrieval failures. Uniform and ImportanceOnly lose critical facts under pressure.')
 
     add_heading(doc, '6.3 Domain Breakdown', level=2)
     add_figure(doc, fig5, 'Figure 5: Safety rate by domain. RiskCache achieves 100% on 5 of 6 domains.')
@@ -579,19 +591,21 @@ def generate_docx_part2(doc, fig3, fig4, fig5):
     add_heading(doc, '10. Conclusion', level=1)
     add_para(doc, (
         'RiskCache reframes long-term agent memory as a risk-aware decision problem. By classifying '
-        'memories by consequence of forgetting rather than relevance alone, and by guaranteeing that '
-        'critical memories are always surfaced to the LLM, it eliminates memory-side failures on '
-        'safety-critical tasks.'
+        'memories by consequence of forgetting rather than relevance alone, and by ensuring that '
+        'critical memories are retained and surfaced to the LLM, it reduces memory-side failures on '
+        'safety-critical tasks to near zero.'
     ))
     add_para(doc, (
-        'On RiskBench-30, RiskCache achieves 96.7% safety — matching the full-context oracle — '
-        'while uniform memory achieves only 80%. The ablation study identifies critical-memory '
-        'injection as the key mechanism.'
+        'In proxy ablations, RiskCache reaches 96.7% safety versus 80.0% for Uniform memory. '
+        'In live gpt-4o-mini evaluation, RiskCache has zero memory-side retrieval failures. '
+        'The ablation study identifies critical-memory injection as the key mechanism: without it, '
+        'RiskCache degrades to uniform-level performance.'
     ))
     add_para(doc, (
-        'The remaining 3.3% failure rate is entirely due to model-side reasoning errors. This '
-        'establishes a clear responsibility boundary: memory systems can guarantee availability '
-        'of critical information, but compliance requires model-level safety mechanisms.'
+        'The remaining failures are entirely model-side reasoning errors. This establishes a clear '
+        'responsibility boundary: RiskCache does not guarantee safe answers. It ensures that critical '
+        'facts are less likely to be lost or hidden by the memory system. Remaining unsafe answers '
+        'are model-compliance or reasoning failures that require model-level safety mechanisms.'
     ))
 
     # References
