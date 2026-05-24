@@ -88,7 +88,8 @@ class RiskCacheMemory:
 
         # Evict if over capacity
         while len(self.memories) > self.capacity:
-            self._evict_one()
+            if not self._evict_one():
+                break  # all remaining are CRITICAL, allow over-capacity
 
         return memory_id
 
@@ -154,13 +155,15 @@ class RiskCacheMemory:
         ]
 
         if not candidates:
-            # All memories are CRITICAL — evict nothing (over capacity is OK)
-            return
+            # All memories are CRITICAL — allow over-capacity rather than
+            # infinite loop. In production, surface a warning.
+            return False
 
         # Sort by: eviction priority DESC (high = evict first), then importance ASC
         candidates.sort(key=lambda x: (-x[0], x[1]))
         worst_id = candidates[0][2]
         del self.memories[worst_id]
+        return True
 
 
 class UniformMemory:
