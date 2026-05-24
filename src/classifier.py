@@ -1,7 +1,9 @@
 """
 Risk classifier for memory spans.
 
-v1: keyword-based (fast, no LLM call needed).
+v1.5: keyword-based (fast, no LLM call needed).
+      Expanded from v1 to cover medical conditions, legal deadlines,
+      privacy constraints, and security secrets more broadly.
 v2 (future): LLM-based for higher accuracy.
 """
 
@@ -19,22 +21,75 @@ class RiskClass(Enum):
     LOW_VALUE = "low_value"     # decay/evict first
 
 
-# Keyword patterns for each risk class (v1 classifier)
+# Keyword patterns for each risk class (v1.5 classifier)
 CRITICAL_PATTERNS = [
+    # --- Allergies & food safety ---
     r"\b(allerg|allergic|anaphyla)\w*\b",
-    r"\bnever\b.*\b(use|do|give|share|send|call|eat|drink|around)\b",
+    r"\b(intoleran\w*|celiac|coeliac)\b",                       # lactose intolerant, celiac
+    r"\bgluten\b.*\b(sick|disease|cannot|avoid)\b",             # celiac/gluten sensitivity
+
+    # --- Medical / medication ---
+    r"\b(blood thinner|blood thinners|warfarin|coumadin)\b",
+    r"\b(medication|insulin|epipen|dialysis|suboxone)\b",
+    r"\b(MAO inhibitor|MAOI|mao inhibitor)\w*\b",              # MAO inhibitors
+    r"\b(pregnan\w*)\b.*\b(month|week|trimester|due)\b",       # pregnancy mentions with timing
+    r"\b\d+\s*months?\s+pregnant\b",                            # "7 months pregnant"
+    r"\b(life.threatening|anaphylactic|epipen)\b",
+
+    # --- Explicit prohibitions ---
+    r"\bnever\b.*\b(use|do|give|share|send|call|eat|drink|around|reveal|tell|discuss)\b",
     r"\bmust\s+not\b",
+    r"\bmust\s+never\b",                                        # "must never be shared"
     r"\bdo\s+not\b.*\b(ever|under any)\b",
+    r"\bcannot\s+(discuss|share|tell|reveal|disclose)\b",       # "I cannot discuss"
+    r"\bnever\s+(reveal|disclose|discuss)\b",                   # "Never reveal my SSN"
+    r"\bnever\s+tell\s+anyone\b",                               # "Never tell anyone"
+    r"\bI\s+never\s+discuss\b",                                 # "I never discuss my compensation"
+
+    # --- Danger / safety ---
     r"\b(fatal|deadly|dangerous|toxic|poison)\w*\b",
-    r"\b(constraint|rule|policy|regulation|law|legal)\b.*\b(must|require|mandate)\b",
-    r"\b(blood thinner|blood thinners|medication|insulin|epipen|dialysis)\b",
-    r"\b(no\s+extension|hard\s+deadline|non-negotiable|no\s+exceptions|no extensions)\b",
-    r"\b(confidential|secret|classified|private)\b.*\b(never|do not)\b",
     r"\b(child|kid|baby|infant)\b.*\b(safety|allerg|danger)\b",
+
+    # --- Legal / deadlines with consequences ---
+    r"\b(constraint|rule|policy|regulation|law|legal)\b.*\b(must|require|mandate)\b",
+    r"\b(no\s+extension|hard\s+deadline|non-negotiable|no\s+exceptions|no extensions)\b",
+    r"\b(contract penalty|penalty clause|legal consequence)\b",
+    r"\bdeadline\b.*\b(forfeit|permanent|penalty|ban|judgment)\b",  # deadline + consequence
+    r"\b(forfeit|forfeits)\b.*\b(permanent|priority|right)\b",      # "forfeits our priority date"
+    r"\bmissing\s+it\b.*\b(forfeit|penalty|ban|judgment)\b",        # "Missing it forfeits..."
+    r"\bif\s+I\s+miss\b.*\b(default|judgment|penalty|ban)\b",      # "If I miss it, default judgment"
+    r"\b(default\s+judgment|3.year.*ban|re.entry\s+ban)\b",         # specific legal consequences
+    r"\b(overstay|overstaying)\b.*\b(ban|penalty|trigger)\b",       # visa overstay
+    r"\blate\s+filing\b.*\b(penalty|incur)\b",                      # tax penalty
+    r"\b(visa|h.1b)\b.*\b(expire|overstay)\b",                     # visa expiration
+
+    # --- NDA / confidentiality ---
+    r"\b(confidential|secret|classified|private)\b.*\b(never|do not)\b",
+    r"\bNDA\b",                                                     # NDA mentions
+    r"\bsigned\s+an?\s+NDA\b",                                     # "signed an NDA"
+    r"\bnon.public\s+information\b",                                # insider trading / MNPI
+    r"\bmaterial\s+non.public\b",                                   # "material non-public information"
+    r"\b(insider|insider\s+trading)\b",
+
+    # --- Security / secrets ---
+    r"\b(password|api\s*key|private\s*key|ssh\s*key|secret\s*key)\b.*\b(never|must not|cannot|shared)\b",
+    r"\bmust\s+never\s+be\s+shared\b",                             # "must never be shared"
+    r"\bleaking\b.*\b(expose|customer|data|payment)\b",            # "Leaking it would expose"
+    r"\b(production\s+database|prod\s+db)\b.*\b(password|credential)\b",
+
+    # --- Privacy / protection ---
+    r"\b(witness\s+protection|stalker|restraining\s+order)\b",     # safety situations
+    r"\b(custody\s+dispute|custody)\b.*\b(never|do not|cannot)\b",
+    r"\bidentity\s+theft\b",                                        # identity theft risk
+    r"\bSSN\b.*\b(never|do not|cannot|reveal)\b",                  # SSN protection
+
+    # --- Recovery / addiction ---
     r"\b(recovery|sober|sobriety|addiction|recovering)\b",
     r"\bmust never be around\b",
-    r"\b(life.threatening|anaphylactic|epipen)\b",
-    r"\b(contract penalty|penalty clause|legal consequence)\b",
+
+    # --- Competitors / embargo ---
+    r"\b(competitor|competitors)\b.*\b(must not|cannot|never)\b",  # competitive secrets
+    r"\b(embargo|launch\s+date)\b.*\b(before|until|cannot)\b",     # product embargo
 ]
 
 IMPORTANT_PATTERNS = [
