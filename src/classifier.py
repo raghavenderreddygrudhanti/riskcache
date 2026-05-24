@@ -22,7 +22,7 @@ class RiskClass(Enum):
 # Keyword patterns for each risk class (v1 classifier)
 CRITICAL_PATTERNS = [
     r"\b(allerg|allergic|anaphyla)\w*\b",
-    r"\bnever\b.*\b(use|do|give|share|send|call|eat)\b",
+    r"\bnever\b.*\b(use|do|give|share|send|call|eat|drink|around)\b",
     r"\bmust\s+not\b",
     r"\bdo\s+not\b.*\b(ever|under any)\b",
     r"\b(fatal|deadly|dangerous|toxic|poison)\w*\b",
@@ -31,6 +31,10 @@ CRITICAL_PATTERNS = [
     r"\b(no\s+extension|hard\s+deadline|non-negotiable|no\s+exceptions|no extensions)\b",
     r"\b(confidential|secret|classified|private)\b.*\b(never|do not)\b",
     r"\b(child|kid|baby|infant)\b.*\b(safety|allerg|danger)\b",
+    r"\b(recovery|sober|sobriety|addiction|recovering)\b",
+    r"\bmust never be around\b",
+    r"\b(life.threatening|anaphylactic|epipen)\b",
+    r"\b(contract penalty|penalty clause|legal consequence)\b",
 ]
 
 IMPORTANT_PATTERNS = [
