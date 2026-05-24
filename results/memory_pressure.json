@@ -1,0 +1,62 @@
+[
+  {
+    "label": "Uniform (no risk)",
+    "capacity": 8,
+    "days_elapsed": 5.0,
+    "total_facts_fed": 20,
+    "total_retained": 8,
+    "critical_retention": 0.0,
+    "important_retention": 0.0,
+    "normal_retention": 0.375,
+    "low_retention": 1.0,
+    "critical_count": "0/3",
+    "important_count": "0/4",
+    "normal_count": "3/8",
+    "low_count": "5/5"
+  },
+  {
+    "label": "RiskCache (risk-aware)",
+    "capacity": 8,
+    "days_elapsed": 5.0,
+    "total_facts_fed": 20,
+    "total_retained": 8,
+    "critical_retention": 1.0,
+    "important_retention": 1.0,
+    "normal_retention": 0.125,
+    "low_retention": 0.0,
+    "critical_count": "3/3",
+    "important_count": "4/4",
+    "normal_count": "1/8",
+    "low_count": "0/5"
+  },
+  {
+    "label": "Uniform (cap=5)",
+    "capacity": 5,
+    "days_elapsed": 5.0,
+    "total_facts_fed": 20,
+    "total_retained": 5,
+    "critical_retention": 0.0,
+    "important_retention": 0.0,
+    "normal_retention": 0.0,
+    "low_retention": 1.0,
+    "critical_count": "0/3",
+    "important_count": "0/4",
+    "normal_count": "0/8",
+    "low_count": "5/5"
+  },
+  {
+    "label": "RiskCache (cap=5)",
+    "capacity": 5,
+    "days_elapsed": 5.0,
+    "total_facts_fed": 20,
+    "total_retained": 5,
+    "critical_retention": 1.0,
+    "important_retention": 0.5,
+    "normal_retention": 0.0,
+    "low_retention": 0.0,
+    "critical_count": "3/3",
+    "important_count": "2/4",
+    "normal_count": "0/8",
+    "low_count": "0/5"
+  }
+]
