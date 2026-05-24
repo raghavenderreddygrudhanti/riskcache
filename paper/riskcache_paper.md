@@ -19,7 +19,7 @@ Consider two facts an AI assistant might store about a user:
 
 Both are memories. Forgetting the first is inconvenient — the agent might suggest Thai food instead. Forgetting the second can be dangerous — the agent might recommend a dish containing peanuts.
 
-Current agent memory systems (MemGPT, LangChain Memory, Letta) optimize for *relevance*, *recency*, or *importance*. Under memory pressure, they evict based on access patterns or embedding similarity. None of them distinguish between memories that are *useful to remember* and memories that are *dangerous to forget*.
+Current agent memory systems (MemGPT, LangChain Memory, Letta) optimize for *relevance*, *recency*, or *importance*. Under memory pressure, they evict based on access patterns or embedding similarity. Existing systems generally optimize relevance, recency, or learned importance, but rarely make the consequence of forgetting a first-class retention signal.
 
 We argue that long-term agent memory should be treated as a **risk-aware decision problem**. The key insight is that the cost function for memory retention is asymmetric: forgetting a preference has low cost, while forgetting a safety constraint has potentially unbounded cost.
 
@@ -297,7 +297,7 @@ This case illustrates a fundamental boundary:
 
 | Failure Type | Responsibility | RiskCache Can Fix? |
 |---|---|---|
-| Critical fact not classified | Classifier | Yes (improve patterns) |
+| Not classified | Classifier | Partially (depends on pattern coverage) |
 | Critical fact evicted | Retention policy | Yes (protected eviction) |
 | Critical fact not retrieved | Surfacing | Yes (critical injection) |
 | Critical fact in prompt, LLM ignores | Model reasoning | **No** |

@@ -366,8 +366,8 @@ def generate_docx():
     add_para(doc, (
         'Current agent memory systems (MemGPT, LangChain Memory, Letta) optimize for relevance, '
         'recency, or importance. Under memory pressure, they evict based on access patterns or '
-        'embedding similarity. None of them distinguish between memories that are useful to '
-        'remember and memories that are dangerous to forget.'
+        'embedding similarity. Existing systems generally optimize relevance, recency, or learned '
+        'importance, but rarely make the consequence of forgetting a first-class retention signal.'
     ))
     add_para(doc, (
         'We argue that long-term agent memory should be treated as a risk-aware decision problem. '
@@ -527,7 +527,7 @@ def generate_docx_part2(doc, fig3, fig4, fig5):
     ))
 
     add_para(doc, (
-        'Result interpretation: Safe-answer rate alone can be misleading. A system may appear '
+        'NOTE — Result interpretation: Safe-answer rate alone can be misleading. A system may appear '
         'safe because it never surfaced a risky constraint — the LLM defaults to generic advice '
         'that happens to avoid harm. Therefore, RiskBench reports root cause alongside safe rate. '
         'RiskCache\'s contribution is reducing memory-side failures to zero; model-side reasoning '
@@ -563,7 +563,7 @@ def generate_docx_part2(doc, fig3, fig4, fig5):
     add_table(doc,
         ['Failure Type', 'Responsibility', 'RiskCache Fixes?'],
         [
-            ['Not classified', 'Classifier', 'Yes'],
+            ['Not classified', 'Classifier', 'Partially (depends on pattern coverage)'],
             ['Evicted', 'Retention policy', 'Yes'],
             ['Not retrieved', 'Surfacing', 'Yes'],
             ['LLM ignores', 'Model reasoning', 'No'],
@@ -610,14 +610,16 @@ def generate_docx_part2(doc, fig3, fig4, fig5):
 
     # References
     add_heading(doc, 'References', level=1)
+    add_para(doc, '(Note: verify arXiv IDs and venue details before submission.)', italic=True, size=9)
+    doc.add_paragraph()
     refs = [
-        '[1] Packer et al. (2023). MemGPT: Towards LLMs as Operating Systems. arXiv:2310.08560.',
-        '[2] Park et al. (2023). Generative Agents: Interactive Simulacra of Human Behavior. UIST 2023.',
-        '[3] Gutierrez et al. (2024). HippoRAG: Long-Term Memory for LLMs. NeurIPS 2024.',
-        '[4] Zhang et al. (2024). A Survey on Memory Mechanism of LLM Agents. arXiv:2404.13501.',
-        '[5] Zhong et al. (2024). MemoryBank: Enhancing LLMs with Long-Term Memory. AAAI 2024.',
-        '[6] Grudhanti (2025). Bitcache: Staged Binary Filtering for Vector Retrieval. Technical Report.',
-        '[7] Grudhanti (2025). CRISP: Context Reduction via Intelligent Skill Pruning. Technical Report.',
+        '[1] Packer, C., Wooders, S., Lin, K., et al. (2023). MemGPT: Towards LLMs as Operating Systems. arXiv:2310.08560.',
+        '[2] Park, J. S., O\'Brien, J. C., Cai, C. J., et al. (2023). Generative Agents: Interactive Simulacra of Human Behavior. UIST 2023.',
+        '[3] Gutierrez, B. J., et al. (2024). HippoRAG: Neurobiologically Inspired Long-Term Memory for Large Language Models. NeurIPS 2024. arXiv:2405.14831.',
+        '[4] Zhang, Z., et al. (2024). A Survey on the Memory Mechanism of Large Language Model based Agents. arXiv:2404.13501.',
+        '[5] Zhong, W., et al. (2024). MemoryBank: Enhancing Large Language Models with Long-Term Memory. AAAI 2024.',
+        '[6] Grudhanti, R. R. (2025). Bitcache: Staged Binary Filtering and Float Reranking for Vector Retrieval. Technical Report.',
+        '[7] Grudhanti, R. R. (2025). CRISP: Context Reduction via Intelligent Skill Pruning. Technical Report.',
     ]
     for ref in refs:
         add_para(doc, ref, size=10)
