@@ -16,10 +16,9 @@ Each memory has:
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple
-
-import numpy as np
+from dataclasses import dataclass
+from math import sqrt
+from typing import Dict, List, Optional, Sequence
 
 from classifier import RiskClass
 
@@ -28,7 +27,7 @@ from classifier import RiskClass
 class Memory:
     id: str
     content: str
-    embedding: np.ndarray
+    embedding: List[float]
     importance: float
     risk_class: RiskClass
     access_count: int = 0
@@ -63,12 +62,13 @@ class RiskCacheMemory:
         self.memories: Dict[str, Memory] = {}
         self._next_id = 0
         self._current_time = 0.0  # simulated time (days)
+        self.protected_overflow_events = 0
 
     def advance_time(self, days: float):
         """Simulate time passing (for benchmarking)."""
         self._current_time += days
 
-    def save(self, content: str, embedding: np.ndarray, importance: float,
+    def save(self, content: str, embedding: Sequence[float], importance: float,
              risk_class: RiskClass, memory_id: Optional[str] = None) -> str:
         """Store a memory with risk classification."""
         if memory_id is None:
@@ -78,7 +78,7 @@ class RiskCacheMemory:
         self.memories[memory_id] = Memory(
             id=memory_id,
             content=content,
-            embedding=embedding / (np.linalg.norm(embedding) + 1e-10),
+            embedding=_normalize(embedding),
             importance=min(1.0, max(0.0, importance)),
             risk_class=risk_class,
             access_count=0,
@@ -89,22 +89,23 @@ class RiskCacheMemory:
         # Evict if over capacity
         while len(self.memories) > self.capacity:
             if not self._evict_one():
-                break  # all remaining are CRITICAL, allow over-capacity
+                self.protected_overflow_events += 1
+                break  # all remaining are CRITICAL, allow protected overflow
 
         return memory_id
 
-    def retrieve(self, query_embedding: np.ndarray, k: int = 5,
+    def retrieve(self, query_embedding: Sequence[float], k: int = 5,
                  min_importance: float = 0.0) -> List[Memory]:
         """Retrieve top-k memories by similarity, applying decay first."""
         self._apply_decay()
 
-        query_norm = query_embedding / (np.linalg.norm(query_embedding) + 1e-10)
+        query_norm = _normalize(query_embedding)
 
         scored = []
         for mem in self.memories.values():
             if mem.importance < min_importance:
                 continue
-            sim = float(np.dot(query_norm, mem.embedding))
+            sim = _dot(query_norm, mem.embedding)
             scored.append((sim, mem))
 
         scored.sort(key=lambda x: -x[0])
@@ -133,6 +134,8 @@ class RiskCacheMemory:
         return {
             "total": len(self.memories),
             "capacity": self.capacity,
+            "over_capacity": max(0, len(self.memories) - self.capacity),
+            "protected_overflow_events": self.protected_overflow_events,
             "by_class": {rc.value: count for rc, count in by_class.items()},
         }
 
@@ -182,7 +185,7 @@ class UniformMemory:
     def advance_time(self, days: float):
         self._current_time += days
 
-    def save(self, content: str, embedding: np.ndarray, importance: float,
+    def save(self, content: str, embedding: Sequence[float], importance: float,
              risk_class: RiskClass = RiskClass.NORMAL, memory_id: Optional[str] = None) -> str:
         """Store memory — ignores risk_class, treats all equally."""
         if memory_id is None:
@@ -192,7 +195,7 @@ class UniformMemory:
         self.memories[memory_id] = Memory(
             id=memory_id,
             content=content,
-            embedding=embedding / (np.linalg.norm(embedding) + 1e-10),
+            embedding=_normalize(embedding),
             importance=min(1.0, max(0.0, importance)),
             risk_class=risk_class,  # stored but not used
             access_count=0,
@@ -205,15 +208,15 @@ class UniformMemory:
 
         return memory_id
 
-    def retrieve(self, query_embedding: np.ndarray, k: int = 5,
+    def retrieve(self, query_embedding: Sequence[float], k: int = 5,
                  min_importance: float = 0.0) -> List[Memory]:
         self._apply_decay()
-        query_norm = query_embedding / (np.linalg.norm(query_embedding) + 1e-10)
+        query_norm = _normalize(query_embedding)
         scored = []
         for mem in self.memories.values():
             if mem.importance < min_importance:
                 continue
-            sim = float(np.dot(query_norm, mem.embedding))
+            sim = _dot(query_norm, mem.embedding)
             scored.append((sim, mem))
         scored.sort(key=lambda x: -x[0])
         results = []
@@ -244,3 +247,13 @@ class UniformMemory:
             return
         worst_id = min(self.memories.items(), key=lambda x: x[1].importance)[0]
         del self.memories[worst_id]
+
+
+def _normalize(vector: Sequence[float]) -> List[float]:
+    values = [float(v) for v in vector]
+    norm = sqrt(sum(v * v for v in values)) + 1e-10
+    return [v / norm for v in values]
+
+
+def _dot(left: Sequence[float], right: Sequence[float]) -> float:
+    return sum(a * b for a, b in zip(left, right))

@@ -74,16 +74,39 @@ User input / agent trace
 | Bitcache (importance-only) | ~60% | medium | low |
 | **RiskCache** | **~95%** | **high** | **low** |
 
+## Current benchmarks
+
+Run:
+
+```bash
+python3 benchmarks/memory_pressure_v2.py
+python3 benchmarks/conversation_safety.py
+python3 benchmarks/downstream_llm_eval.py
+```
+
+The main memory-pressure benchmark now covers 2,120 conditions:
+
+```text
+4 systems x 53 insertion orders x 2 importance settings x 5 capacities
+```
+
+The conversation benchmark checks whether critical facts survive realistic
+multi-turn noise. The downstream harness writes both a deterministic proxy
+evaluation and JSONL prompts that can be sent to a real LLM judge later.
+
 ## Project layout
 
 ```
 riskcache/
 ├── src/
 │   ├── classifier.py      Risk classifier (keyword + LLM)
-│   ├── memory_router.py   Routes memories to storage with risk policies
+│   ├── backends.py        Pure-Python and Bitcache backend adapters
 │   └── riskcache.py       Main RiskCache class (wraps Bitcache)
 ├── benchmarks/
-│   └── memory_pressure.py Benchmark: critical fact retention under pressure
+│   ├── memory_pressure.py    First retention benchmark
+│   ├── memory_pressure_v2.py Stronger multi-condition benchmark
+│   ├── conversation_safety.py Conversation-style safety benchmark
+│   └── downstream_llm_eval.py Downstream proxy + prompt export
 ├── data/
 │   └── conversations.jsonl Test conversations with critical facts
 ├── results/

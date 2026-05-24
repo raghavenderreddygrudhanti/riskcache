@@ -3,22 +3,22 @@ RiskCache Benchmark v2 — multi-condition, randomized, stronger baselines.
 
 Tests critical fact retention across:
   - 4 memory systems (uniform-equal, uniform-importance, importance+decay, RiskCache)
-  - 5 insertion orders (critical-first, critical-last, critical-middle, random×2)
+  - 53 insertion orders (critical-first, critical-last, critical-middle, random×50)
   - 2 importance assignments (equal, varied)
-  - 2 capacity levels (8, 5)
+  - 5 capacity levels (3, 5, 8, 10, 12)
 
-Total: 4 systems × 5 orders × 2 importance × 2 capacities = 80 conditions
+Total: 4 systems × 53 orders × 2 importance × 5 capacities = 2120 conditions
 Each condition run once (deterministic given seed).
 """
 
 from __future__ import annotations
 
 import json
+import hashlib
+import random
 import sys
 from pathlib import Path
 from typing import List, Tuple
-
-import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -68,21 +68,33 @@ ALL_FACTS: List[Tuple[str, RiskClass]] = (
 )
 
 
-def make_embedding(text: str, dim: int = 64) -> np.ndarray:
-    rng = np.random.default_rng(hash(text) % (2**32))
-    emb = rng.standard_normal(dim).astype(np.float32)
-    return emb / np.linalg.norm(emb)
+def make_embedding(text: str, dim: int = 64) -> List[float]:
+    seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
+    rng = random.Random(seed)
+    return [rng.gauss(0.0, 1.0) for _ in range(dim)]
 
 
 # ─── Insertion orders ─────────────────────────────────────────────────────────
 
 def order_critical_first(facts):
     """Critical facts inserted first (earliest, most vulnerable to FIFO eviction)."""
-    return sorted(facts, key=lambda x: x[1].value)
+    rank = {
+        RiskClass.CRITICAL: 0,
+        RiskClass.IMPORTANT: 1,
+        RiskClass.NORMAL: 2,
+        RiskClass.LOW_VALUE: 3,
+    }
+    return sorted(facts, key=lambda x: rank[x[1]])
 
 def order_critical_last(facts):
     """Critical facts inserted last (most recent, least vulnerable)."""
-    return sorted(facts, key=lambda x: x[1].value, reverse=True)
+    rank = {
+        RiskClass.LOW_VALUE: 0,
+        RiskClass.NORMAL: 1,
+        RiskClass.IMPORTANT: 2,
+        RiskClass.CRITICAL: 3,
+    }
+    return sorted(facts, key=lambda x: rank[x[1]])
 
 def order_critical_middle(facts):
     """Critical facts in the middle of the stream."""
@@ -93,7 +105,7 @@ def order_critical_middle(facts):
 
 def order_random(facts, seed):
     """Random shuffle."""
-    rng = np.random.default_rng(seed)
+    rng = random.Random(seed)
     shuffled = list(facts)
     rng.shuffle(shuffled)
     return shuffled
@@ -161,6 +173,11 @@ def run_condition(system, facts_ordered, importance_fn, days_elapsed=5.0):
     }
 
 
+def mean(values):
+    values = list(values)
+    return sum(values) / len(values)
+
+
 # ─── Main ─────────────────────────────────────────────────────────────────────
 
 def main():
@@ -175,16 +192,18 @@ def main():
         ("critical-first", lambda f: order_critical_first(f)),
         ("critical-last", lambda f: order_critical_last(f)),
         ("critical-middle", lambda f: order_critical_middle(f)),
-        ("random-seed42", lambda f: order_random(f, 42)),
-        ("random-seed99", lambda f: order_random(f, 99)),
     ]
+    orders.extend(
+        (f"random-seed{seed}", lambda f, seed=seed: order_random(f, seed))
+        for seed in range(50)
+    )
 
     importances = [
         ("equal (0.5)", importance_equal),
         ("varied (0.9/0.7/0.5/0.3)", importance_varied),
     ]
 
-    capacities = [8, 5]
+    capacities = [3, 5, 8, 10, 12]
 
     print("=" * 80)
     print("  RiskCache Benchmark v2: Multi-Condition Critical Retention")
@@ -213,28 +232,33 @@ def main():
                     all_results.append(r)
 
     # Aggregate by system
-    print(f"  {'System':<25} {'Avg Critical %':>15} {'Avg Important %':>16} {'Conditions':>12}")
-    print("  " + "-" * 72)
+    print(f"  {'System':<25} {'Avg Critical %':>15} {'Worst Critical %':>17} {'Avg Important %':>16} {'Conditions':>12}")
+    print("  " + "-" * 91)
     for sys_label, _ in systems:
         sys_results = [r for r in all_results if r["system"] == sys_label]
-        avg_crit = np.mean([r["critical_pct"] for r in sys_results])
-        avg_imp = np.mean([r["important_retained"] / r["important_total"] * 100
-                          for r in sys_results])
-        print(f"  {sys_label:<25} {avg_crit:>14.1f}% {avg_imp:>15.1f}% {len(sys_results):>12}")
+        avg_crit = mean([r["critical_pct"] for r in sys_results])
+        min_crit = min([r["critical_pct"] for r in sys_results])
+        avg_imp = mean([r["important_retained"] / r["important_total"] * 100
+                       for r in sys_results])
+        print(f"  {sys_label:<25} {avg_crit:>14.1f}% {min_crit:>16.1f}% {avg_imp:>15.1f}% {len(sys_results):>12}")
 
     # Breakdown by condition type
-    print(f"\n  Critical retention by insertion order (averaged across importance × capacity):")
+    print(f"\n  Critical retention by insertion order family (averaged across importance × capacity):")
     print(f"  {'System':<25}", end="")
-    for ord_label, _ in orders:
-        print(f" {ord_label[:12]:>13}", end="")
+    order_families = ["critical-first", "critical-last", "critical-middle", "random"]
+    for ord_label in order_families:
+        print(f" {ord_label[:15]:>16}", end="")
     print()
     print("  " + "-" * 90)
     for sys_label, _ in systems:
         print(f"  {sys_label:<25}", end="")
-        for ord_label, _ in orders:
+        for ord_label in order_families:
             subset = [r for r in all_results
-                      if r["system"] == sys_label and r["order"] == ord_label]
-            avg = np.mean([r["critical_pct"] for r in subset])
+                      if r["system"] == sys_label and (
+                          r["order"] == ord_label or
+                          (ord_label == "random" and r["order"].startswith("random-"))
+                      )]
+            avg = mean([r["critical_pct"] for r in subset])
             print(f" {avg:>12.0f}%", end="")
         print()
 
@@ -245,8 +269,17 @@ def main():
         for sys_label, _ in systems:
             subset = [r for r in all_results
                       if r["system"] == sys_label and r["importance"] == imp_label]
-            avg = np.mean([r["critical_pct"] for r in subset])
-            print(f"    {sys_label:<25} {avg:.1f}%")
+            avg = mean([r["critical_pct"] for r in subset])
+            worst = min([r["critical_pct"] for r in subset])
+            print(f"    {sys_label:<25} avg={avg:.1f}% worst={worst:.1f}%")
+
+    risk_results = [r for r in all_results if r["system"] == "RiskCache"]
+    baseline_results = [r for r in all_results if r["system"] != "RiskCache"]
+    print("\n  Headline:")
+    print(f"    RiskCache critical retention: avg={mean([r['critical_pct'] for r in risk_results]):.1f}%, "
+          f"worst={min([r['critical_pct'] for r in risk_results]):.1f}%")
+    print(f"    Non-risk baselines: avg={mean([r['critical_pct'] for r in baseline_results]):.1f}%, "
+          f"worst={min([r['critical_pct'] for r in baseline_results]):.1f}%")
 
     # Save
     out = Path(__file__).resolve().parent.parent / "results" / "memory_pressure_v2.json"

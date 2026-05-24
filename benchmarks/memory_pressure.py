@@ -21,10 +21,10 @@ Metrics:
 from __future__ import annotations
 
 import json
+import hashlib
+import random
 import sys
 from pathlib import Path
-
-import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "src"))
 
@@ -65,12 +65,12 @@ FACTS = [
 ]
 
 
-def make_embedding(text: str, dim: int = 64) -> np.ndarray:
+def make_embedding(text: str, dim: int = 64) -> list[float]:
     """Deterministic pseudo-embedding from text (for reproducibility).
     In production you'd use a real embedding model."""
-    rng = np.random.default_rng(hash(text) % (2**32))
-    emb = rng.standard_normal(dim).astype(np.float32)
-    return emb / np.linalg.norm(emb)
+    seed = int.from_bytes(hashlib.sha256(text.encode("utf-8")).digest()[:8], "big")
+    rng = random.Random(seed)
+    return [rng.gauss(0.0, 1.0) for _ in range(dim)]
 
 
 def run_experiment(memory_system, label: str, capacity: int, days_elapsed: float):
